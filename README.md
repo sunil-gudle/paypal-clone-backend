@@ -275,6 +275,51 @@ transactions
 
 ---
 
+## Postman Testing
+
+Import both files from the `postman/` folder into Postman:
+- `PayPal-Clone.postman_collection.json`
+- `PayPal-Clone.postman_environment.json`
+
+Select the `PayPal Clone - Local` environment from the top-right dropdown. Tokens are saved and reused automatically by the built-in test scripts — no manual copy-pasting needed.
+
+### Testing Flow — Run in this order
+
+| Step | Folder | Request | What it does |
+|---|---|---|---|
+| 1 | Health & Info | Health Check | Confirm app is running |
+| 2 | Auth | Register | Creates `john@example.com`, saves `userId` |
+| 3 | Auth | Login | Saves `accessToken` + `refreshToken` automatically |
+| 4 | User | Get My Profile | Fetches John's profile using saved token |
+| 5 | User | Update My Profile | Updates first name and phone number |
+| 6 | Wallet | Get My Wallet | Confirms wallet was auto-created with balance 0.00 |
+| 7 | Wallet | Top Up Wallet | Adds 500.00 to John's wallet |
+| 8 | Auth | Register | Change body email to `jane@example.com` — creates second user |
+| 9 | Transactions | Transfer Money | Sends 100.00 from John to Jane, saves `transactionId` + `referenceId` |
+| 10 | Transactions | Get Transaction History | Lists all transactions with pagination |
+| 11 | Transactions | Get Transaction by ID | Fetches the transfer using saved `transactionId` |
+| 12 | Transactions | Get Transaction by Reference ID | Fetches using saved `referenceId` |
+| 13 | Transactions | Refund Transaction | Refunds the transfer, money returns to John |
+| 14 | Auth | Refresh Token | Rotates tokens using saved `refreshToken` |
+| 15 | Auth | Login as Admin | Logs in as `admin@paypal.com`, saves `adminToken` |
+| 16 | User | Get User by ID (Admin) | Uses `adminToken` + saved `userId` to look up John |
+| 17 | User | Update User Status (Admin) | Suspends John's account |
+| 18 | Auth | Logout | Invalidates refresh token, clears tokens from environment |
+
+### Environment Variables (auto-managed by scripts)
+
+| Variable | Set by | Used by |
+|---|---|---|
+| `baseUrl` | You (default: `http://localhost:8080`) | All requests |
+| `accessToken` | Login script | All authenticated requests |
+| `refreshToken` | Login script | Refresh Token request |
+| `adminToken` | Login as Admin script | Admin requests |
+| `userId` | Register / Get My Profile script | Get User by ID, Update Status |
+| `transactionId` | Transfer Money script | Get by ID, Refund |
+| `referenceId` | Transfer Money script | Get by Reference ID |
+
+---
+
 ## What's Coming Next
 
 - Password change endpoint
