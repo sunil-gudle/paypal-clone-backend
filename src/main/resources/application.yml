@@ -1,0 +1,68 @@
+spring:
+  application:
+    name: paypal-user
+
+  profiles:
+    active: local   # loads application-local.yml — never committed to git
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/paypal_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: # your MySQL username
+    password: # your MySQL password
+
+  jpa:
+    database-platform: org.hibernate.dialect.MySQLDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      # password: your_redis_password
+
+server:
+  port: 8080
+
+app:
+  jwt:
+    secret: # your 256-bit JWT secret key
+    access-token-expiry-ms: 900000
+    refresh-token-expiry-ms: 604800000
+
+  rate-limit:
+    capacity: 20
+    refill-tokens: 20
+    refill-seconds: 60
+
+  admin:
+    emails: # comma-separated admin emails e.g. admin@paypal.com,superadmin@paypal.com
+    default-password: # default password for seeded admin accounts
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: PayPal Clone API
+    version: 1.0.0
