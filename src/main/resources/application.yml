@@ -36,8 +36,8 @@ app:
     refresh-token-expiry-ms: 604800000
 
   rate-limit:
-    capacity: 20
-    refill-tokens: 20
+    capacity: 200
+    refill-tokens: 200
     refill-seconds: 60
 
   admin:
