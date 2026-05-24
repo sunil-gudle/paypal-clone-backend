@@ -36,18 +36,34 @@ docker-compose up -d
 ```
 
 This starts:
-- MySQL 8.0 on port `3306` — database `paypal_db`, root password `root`
+- MySQL 8.0 on port `3306` — database `paypal_db`
 - Redis 7.2 on port `6379`
 
 Data is persisted via Docker volumes across restarts.
 
-### 2. Run the application
+### 2. Configure local credentials
+
+Copy the local config template and fill in your values:
+
+```
+src/main/resources/application-local.yml   ← gitignored, never committed
+```
+
+Set the following in that file:
+- MySQL username and password
+- Redis password (if applicable)
+- JWT secret key (256-bit hex string)
+- Admin email(s) and default password
+
+The `local` profile is active by default — `application.yml` loads first, then `application-local.yml` overrides the sensitive values.
+
+### 3. Run the application
 
 ```bash
 ./mvnw spring-boot:run
 ```
 
-### 3. Open Swagger UI
+### 4. Open Swagger UI
 
 ```
 http://localhost:8080/swagger-ui.html
@@ -57,23 +73,24 @@ http://localhost:8080/swagger-ui.html
 
 ## Configuration
 
-All config lives in `src/main/resources/application.yml`.
+All non-sensitive config lives in `src/main/resources/application.yml`.
+All credentials and secrets go in `src/main/resources/application-local.yml` — this file is gitignored and never committed.
 
-| Property | Default | Description |
-|---|---|---|
-| `server.port` | `8080` | App port |
-| `spring.datasource.url` | `jdbc:mysql://localhost:3306/paypal_db` | MySQL URL |
-| `spring.datasource.username` | `root` | MySQL username |
-| `spring.datasource.password` | `root` | MySQL password |
-| `spring.data.redis.host` | `localhost` | Redis host |
-| `spring.data.redis.port` | `6379` | Redis port |
-| `app.jwt.secret` | *(256-bit hex)* | JWT signing secret — change in production |
-| `app.jwt.access-token-expiry-ms` | `900000` | Access token TTL (15 min) |
-| `app.jwt.refresh-token-expiry-ms` | `604800000` | Refresh token TTL (7 days) |
-| `app.rate-limit.capacity` | `20` | Max requests per window |
-| `app.rate-limit.refill-seconds` | `60` | Rate limit window in seconds |
-| `app.admin.emails` | `admin@paypal.com,superadmin@paypal.com` | Comma-separated admin emails |
-| `app.admin.default-password` | `Admin@1234` | Default password for seeded admins |
+| Property | Description |
+|---|---|
+| `server.port` | App port (default `8080`) |
+| `spring.datasource.url` | MySQL connection URL |
+| `spring.datasource.username` | MySQL username — set in `application-local.yml` |
+| `spring.datasource.password` | MySQL password — set in `application-local.yml` |
+| `spring.data.redis.host` | Redis host (default `localhost`) |
+| `spring.data.redis.port` | Redis port (default `6379`) |
+| `app.jwt.secret` | JWT signing secret (256-bit) — set in `application-local.yml` |
+| `app.jwt.access-token-expiry-ms` | Access token TTL (default 15 min) |
+| `app.jwt.refresh-token-expiry-ms` | Refresh token TTL (default 7 days) |
+| `app.rate-limit.capacity` | Max requests per window (default `20`) |
+| `app.rate-limit.refill-seconds` | Rate limit window in seconds (default `60`) |
+| `app.admin.emails` | Comma-separated admin emails — set in `application-local.yml` |
+| `app.admin.default-password` | Default password for seeded admins — set in `application-local.yml` |
 
 ---
 
@@ -173,7 +190,7 @@ All responses follow this structure:
 {
   "status": "SUCCESS",
   "message": "...",
-  "data": { },
+  "data": {},
   "timestamp": "2026-03-15T10:00:00"
 }
 ```
@@ -236,20 +253,23 @@ All responses follow this structure:
 
 ## Admin Management
 
-Admins are managed via `application.properties` — no public API endpoint for promotion/demotion.
+Admins are managed via `application-local.yml` — no public API endpoint for promotion or demotion.
 
-```properties
-app.admin.emails=admin@paypal.com,superadmin@paypal.com
+```yaml
+app:
+  admin:
+    emails: # comma-separated list of admin emails
+    default-password: # default password for seeded admin accounts
 ```
 
 On every startup, `DataSeeder`:
-- Creates any admin in the list that doesn't exist yet
+- Creates any admin in the list that does not exist yet
 - Promotes existing users in the list to `ROLE_ADMIN`
 - Demotes any `ROLE_ADMIN` user not in the list back to `ROLE_USER`
 
 For immediate one-off changes, update directly in MySQL:
 ```sql
-UPDATE users SET role = 'ROLE_ADMIN' WHERE email = 'john@example.com';
+UPDATE users SET role = 'ROLE_ADMIN' WHERE email = 'your-email@example.com';
 ```
 
 ---
@@ -288,22 +308,22 @@ Select the `PayPal Clone - Local` environment from the top-right dropdown. Token
 | Step | Folder | Request | What it does |
 |---|---|---|---|
 | 1 | Health & Info | Health Check | Confirm app is running |
-| 2 | Auth | Register | Creates `john@example.com`, saves `userId` |
+| 2 | Auth | Register | Creates a new user, saves `userId` |
 | 3 | Auth | Login | Saves `accessToken` + `refreshToken` automatically |
-| 4 | User | Get My Profile | Fetches John's profile using saved token |
+| 4 | User | Get My Profile | Fetches profile using saved token |
 | 5 | User | Update My Profile | Updates first name and phone number |
 | 6 | Wallet | Get My Wallet | Confirms wallet was auto-created with balance 0.00 |
-| 7 | Wallet | Top Up Wallet | Adds 500.00 to John's wallet |
-| 8 | Auth | Register | Change body email to `jane@example.com` — creates second user |
-| 9 | Transactions | Transfer Money | Sends 100.00 from John to Jane, saves `transactionId` + `referenceId` |
+| 7 | Wallet | Top Up Wallet | Adds funds to wallet |
+| 8 | Auth | Register | Change body email — creates a second user for transfer testing |
+| 9 | Transactions | Transfer Money | Sends money to second user, saves `transactionId` + `referenceId` |
 | 10 | Transactions | Get Transaction History | Lists all transactions with pagination |
 | 11 | Transactions | Get Transaction by ID | Fetches the transfer using saved `transactionId` |
 | 12 | Transactions | Get Transaction by Reference ID | Fetches using saved `referenceId` |
-| 13 | Transactions | Refund Transaction | Refunds the transfer, money returns to John |
+| 13 | Transactions | Refund Transaction | Refunds the transfer, money returns to sender |
 | 14 | Auth | Refresh Token | Rotates tokens using saved `refreshToken` |
-| 15 | Auth | Login as Admin | Logs in as `admin@paypal.com`, saves `adminToken` |
-| 16 | User | Get User by ID (Admin) | Uses `adminToken` + saved `userId` to look up John |
-| 17 | User | Update User Status (Admin) | Suspends John's account |
+| 15 | Auth | Login as Admin | Logs in with admin credentials, saves `adminToken` |
+| 16 | User | Get User by ID (Admin) | Uses `adminToken` + saved `userId` to look up a user |
+| 17 | User | Update User Status (Admin) | Updates a user's account status |
 | 18 | Auth | Logout | Invalidates refresh token, clears tokens from environment |
 
 ### Environment Variables (auto-managed by scripts)
