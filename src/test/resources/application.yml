@@ -1,0 +1,44 @@
+spring:
+  profiles:
+    active: test
+
+  # H2 in-memory database — replaces MySQL for tests
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  # Embedded Redis — started by EmbeddedRedisConfig in test scope
+  data:
+    redis:
+      host: localhost
+      port: 6370   # different port to avoid conflict with real Redis
+
+  # Disable DataSeeder in tests
+  autoconfigure:
+    exclude:
+
+app:
+  jwt:
+    secret: test-secret-key-for-testing-only-must-be-256-bits-long-padding-here
+    access-token-expiry-ms: 900000
+    refresh-token-expiry-ms: 604800000
+
+  rate-limit:
+    capacity: 1000
+    refill-tokens: 1000
+    refill-seconds: 60
+
+  admin:
+    emails: testadmin@test.com
+    default-password: TestAdmin@123

@@ -31,25 +31,31 @@ public class RateLimitFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
-        // Use authenticated user email as key, fall back to IP
-        String key = resolveKey(request);
+        try {
+            String key = resolveKey(request);
 
-        if (!rateLimitService.isAllowed(key)) {
-            long retryAfter = rateLimitService.getTtl(key);
-            response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            response.setHeader("Retry-After", String.valueOf(retryAfter));
-            response.setHeader("X-RateLimit-Remaining", "0");
+            if (!rateLimitService.isAllowed(key)) {
+                long retryAfter = rateLimitService.getTtl(key);
+                response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
+                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                response.setHeader("Retry-After", String.valueOf(retryAfter));
+                response.setHeader("X-RateLimit-Remaining", "0");
 
-            objectMapper.writeValue(response.getWriter(), Map.of(
-                    "status", "ERROR",
-                    "message", "Too many requests. Please try again in " + retryAfter + " seconds."
-            ));
-            return;
+                objectMapper.writeValue(response.getWriter(), Map.of(
+                        "status", "ERROR",
+                        "message", "Too many requests. Please try again in " + retryAfter + " seconds."
+                ));
+                return;
+            }
+
+            long remaining = rateLimitService.getRemaining(key);
+            response.setHeader("X-RateLimit-Remaining", String.valueOf(remaining));
+
+        } catch (Exception ex) {
+            // If Redis is unavailable, log and allow the request through
+            // Rate limiting is best-effort — don't block traffic over it
+            log.warn("Rate limit check failed (Redis unavailable?): {}", ex.getMessage());
         }
-
-        long remaining = rateLimitService.getRemaining(key);
-        response.setHeader("X-RateLimit-Remaining", String.valueOf(remaining));
 
         filterChain.doFilter(request, response);
     }
